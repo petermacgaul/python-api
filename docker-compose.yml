@@ -1,0 +1,56 @@
+services:
+  fastapi:
+    image: ${WEB_CONTAINER_NAME}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - ${WEB_PORT}:${WEB_PORT}
+    environment:
+      DATABASE_URL: mysql+asyncmy://${DB_USER}:${DB_PASSWORD}@${DB_CONTAINER_NAME}:3306/${DB_NAME}
+      ENVIRONMENT: DEVELOPMENT
+      PORT: ${WEB_PORT}
+    depends_on:
+      database:
+        condition: service_healthy
+      database_to_scan:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+
+  database:
+    container_name: ${DB_CONTAINER_NAME}
+    image: mysql:latest
+    environment:
+      MYSQL_USER: ${DB_USER}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      - ${DB_PORT}:3306
+    volumes:
+      - ./app/volumes/db_volume:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  database_to_scan:
+    container_name: ${SCAN_DB_CONTAINER_NAME}
+    image: mysql:latest
+    environment:
+      MYSQL_USER: ${SCAN_DB_USER}
+      MYSQL_ROOT_PASSWORD: ${SCAN_DB_PASSWORD}
+      MYSQL_PASSWORD: ${SCAN_DB_PASSWORD}
+      MYSQL_DATABASE: ${SCAN_DB_NAME}
+    ports:
+      - ${SCAN_DB_PORT}:3306
+    volumes:
+      - ./app/volumes/db_volume_scan:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
